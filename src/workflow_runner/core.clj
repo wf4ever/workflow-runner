@@ -79,7 +79,10 @@
   (GET "/test" [:as request] (str request))
   (ANY "/jobs" [:as req] (moved (full-url req "/jobs/") :permanently))
   (GET "/jobs/" [:as request] (all-jobs request)) 
-  (POST "/jobs/" {job :body-params :as request} (new-job job request))
+  (POST "/jobs/" {
+                  params :params
+                  body-params :body-params 
+                  :as request} (new-job (or body-params params) request))
   (GET "/jobs/:jobid" [jobid] (get-job jobid))
   (DELETE "/jobs/:jobid" [jobid] (cancel-job jobid))
   (route/resources "/")
