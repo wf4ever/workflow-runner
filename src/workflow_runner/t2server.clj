@@ -17,18 +17,29 @@
   (assoc default-req 
     :basic-auth [username password]))
 
+(defn map-value-map [f m] (zipmap (keys m) (map f (vals m))))
+
 (defn connect
   "Connect to t2server and return a map to be used as 'server'"
   [url username password & req]
   (let [req (merge req (authenticated username password))]
   ; We'll include the pre-populated req in the returned map
   (merge
-    (get-in (client/get url req) [:body :serverDescription])
+    (map-value-map href (get-in (client/get url req) [:body :serverDescription]))
     {::req req
      :url url})))
 
-(defn map-value-map [f m] (zipmap (keys m) (map f (vals m))))
+(defn runs [server]
+  (map href (get-in 
+              (client/get (:runs server) (::req server))
+              [:body :runList :run])))
 
+
+(defn new-run [server workflow]
+  (get-in (client/post (:runs server) (merge (::req server) 
+                                             {:body workflow
+                                              :content-type t2flow-type})) 
+          [:headers "location"]))
 
 (defn run [server url]
   (merge 
@@ -38,15 +49,7 @@
         (client/get url (::req server))
                                 [:body :runDescription]))))
 
-(defn runs [server]
-  (map href (get-in 
-              (client/get (get-in server [:runs href]) (::req server))
-              [:body :runList :run])))
 
-
-(defn new-run [server workflow]
-  (client/post (runs-uri server) (merge (::req server) {:body workflow
-                                                        :content-type t2flow-type})))
 
 (defn run-get [run attr]
   (if-let [url (attr run)]
