@@ -1,7 +1,7 @@
 (ns workflow-runner.test.t2server
   (:use [clojure.java.io :only [resource input-stream]])
   (:use [workflow-runner.t2server])
-  (:use [clj-time.core :only [after? now]])
+  (:use [clj-time.core :only [before? after? now plus hours]])
   (:use [clojure.test]))
 
 (def ^:dynamic *server* "http://sandbox.wf4ever-project.org/taverna-server/rest/")
@@ -21,8 +21,8 @@
   (let [s (connect *server* *server-user* *server-pw*)]
     (is (map? s))
     (is (= *server* (:url s)))
-    (is (= (str *server* "runs/") (:runs s)))
-    (is (map? (::workflow-runner.t2server/req *server*)))))
+    (is (.startsWith (:runs s) *server*))
+    (is (map? (:workflow-runner.t2server/req s)))))
 
 (deftest test-runs
   (let  [s (connect *server* *server-user* *server-pw*)
@@ -31,27 +31,35 @@
     ; Should be a list of URIs
     (map #(is (and (string? %) (.startsWith % *server*))) r)))
 
+;; http://stackoverflow.com/questions/3249334/test-whether-a-list-contains-a-specific-value-in-clojure
+(defn in? 
+  "true if seq contains elm"
+  [seq elm]  
+  (some #(= elm %) seq))
+
+
 (deftest test-new-run
   (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
         s (connect *server* *server-user* *server-pw*)
         r-uri (new-run s wf)]
     (is (string? r-uri))
     (is (.startsWith r-uri *server*))
-    (is (contains? r-uri (runs s)))))
+    (is (in? (runs s) r-uri))))
 
 (deftest test-datetime?
     (is (not (datetime? nil)))
     (is (not (datetime? (str (now)))))
-    (is (datetime? (now) (now))))
+    (is (datetime? (now))))
 
 (deftest test-run
   (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
         s (connect *server* *server-user* *server-pw*)
-        r (run s (new-run s wf))]
+        run-uri (new-run s wf)
+        r (run s run-uri)]
     (is (map? r))
-    (is (= r (:url r)))
-    ((map? (::workflow-runner.t2server/req *server*)))
-    (is (.startsWith (:status r)))))
+    (is (= run-uri (:url r)))
+    (is (map? (::workflow-runner.t2server/req r)))
+    (is (.startsWith (:status r) run-uri))))
 
 (deftest test-run-get
   (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
@@ -67,10 +75,11 @@
   (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
         s (connect *server* *server-user* *server-pw*)
         r (run s (new-run s wf))
-        created (run-get r :createTime)]
+        old-expiry (run-get r :expiry)
+        new-expiry (plus old-expiry (hours 1))]
     (is (= :Finished (run-set r :status :Finished)))
     (is (= :Finished (run-get r :status)))
-    (println (run-set r :expiry created))
-    (is (= created (run-get r :expiry)))))
+    (is (= new-expiry (run-set r :expiry new-expiry)))
+    (is (before? old-expiry (run-get r :expiry)))))
 
  

@@ -50,34 +50,36 @@
         (client/get url (::req server))
                                 [:body :runDescription]))))
 
-
+(defn- run-get-parse-body [attr {body :body}]
+    (cond 
+      (= "" body) nil
+      (nil? body) nil
+      ;(map? body) (first (vals body))
+      :else (case attr
+              :status (keyword body)
+              (:expiry :createTime :finishTime :startTime) 
+                (timeformat/parse (:date-time timeformat/formatters) body)
+              body)))
+ 
 (defn run-get [run attr]
   (if-let [url (attr run)]
-    (let [body (:body (client/get url (::req run)))]
-      (cond 
-        (= "" body) nil
-        (nil? body) nil
-        ;(map? body) (first (vals body))
-        :else (case attr
-                :status (keyword body)
-                (:expiry :createTime :finishTime :startTime) 
-                  (timeformat/parse (:date-time timeformat/formatters) body)
-                body)))))
+    (run-get-parse-body attr (client/get url (::req run)))))
 
 (defn datetime? [v]
     (instance? (type (now)) v))
 
 (defn run-set [run attr value]
-  (client/put (attr run) (merge (::req run) 
-            {:body (cond 
-                     (string? value) value
-                     (keyword? value) (name value)
-                     (datetime? value) (str value)
-                     :else value)
+  (let [body (cond 
+               (string? value) value
+               (keyword? value) (name value)
+               (datetime? value) (str value)
+               :else value)]
+    (run-get-parse-body attr 
+      (client/put (attr run) (merge (::req run) 
+            {:body body
              :content-type (cond 
-                             (string? value) "text/plain"
-                             (keyword? value) "text/plain"
-                             :else "application/json")})))
+                             (string? body) "text/plain"
+                             :else "application/json")})))))
 
 (defn run-status [run]
   (run-get run :status))
