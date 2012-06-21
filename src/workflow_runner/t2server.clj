@@ -1,4 +1,5 @@
 (ns workflow-runner.t2server
+ (:use [clj-time.core :only [now]])
  (:require [clj-http.client :as client])
  (:require [clj-time.format :as timeformat]))
 
@@ -50,25 +51,28 @@
                                 [:body :runDescription]))))
 
 
-
 (defn run-get [run attr]
   (if-let [url (attr run)]
     (let [body (:body (client/get url (::req run)))]
       (cond 
-        (= "" body) nil)
+        (= "" body) nil
+        (nil? body) nil
         ;(map? body) (first (vals body))
         :else (case attr
                 :status (keyword body)
                 (:expiry :createTime :finishTime :startTime) 
                   (timeformat/parse (:date-time timeformat/formatters) body)
-                body))))
+                body)))))
 
+(defn datetime? [v]
+    (instance? (type (now)) v))
 
 (defn run-set [run attr value]
   (client/put (attr run) (merge (::req run) 
             {:body (cond 
                      (string? value) value
                      (keyword? value) (name value)
+                     (datetime? value) (str value)
                      :else value)
              :content-type (cond 
                              (string? value) "text/plain"
