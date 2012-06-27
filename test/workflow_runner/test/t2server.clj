@@ -53,7 +53,7 @@
         r-uri (new-run s wf)]
     (is (string? r-uri))
     (is (.startsWith r-uri *server*))
-    (is (in? (keys (runs s)) r-uri))))
+    (is (in? (vals (runs s)) r-uri))))
 
 (deftest test-datetime?
     (is (not (datetime? nil)))
