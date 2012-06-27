@@ -3,11 +3,16 @@
   (:use compojure.core)
   (:use [ring.middleware.format-params :only [wrap-restful-params]]
         [ring.util.response]
-        [ring.middleware.format-response :only [wrap-restful-response]])
+        [ring.middleware.format-response :only [wrap-restful-response]]
+        [clojure.string :only [trim split-lines join]])
   (:require [compojure.route :as route]
+            [workflow-runner.t2server :as t2]
             [compojure.handler :as handler]))
 
-(def jobs (atom {}))
+;; TODO: Move to configuration file
+(def default-server "http://sandbox.wf4ever-project.org/taverna-server/rest/")
+
+(def ^:dynamic *server* default-server)
 
 (def dummy-req
   {:ssl-client-cert nil, :remote-addr "127.0.0.1", :scheme :http, :query-params {}, :form-params {}, :body-params {"ro" "http://example.com"}, :request-method :post, :query-string nil, :route-params {}, :content-type "application/json", :uri "/jobs/", :server-name "localhost", :params {:ro "http://example.com"}, :headers {"connection" "TE, close", "user-agent" "lwp-request/6.03 libwww-perl/6.03", "te" "deflate,gzip;q=0.3", "content-type" "application/json", "content-length" "29", "host" "localhost:3000"}, :content-length 29, :server-port 3000, :character-encoding nil, :body "{\"ro\": \"http://example.com\"}"})
@@ -29,7 +34,6 @@
                  (:uri req)
                  (:query-string req)
                  nil)]
-    (println relative)
     (.toASCIIString
         (reduce #(.resolve %1 %2) uri relative))))
 
@@ -46,46 +50,72 @@
 (defn gen-uuid []
   (.toString (UUID/randomUUID)))
 
-(defn new-job [job request]
-  (let [jobid (gen-uuid)]
-    (prn request)
-    (swap! jobs assoc jobid (assoc job 
-                              :id jobid
-                              :status :new
-                              ;; TODO: Ensure job is only the expected
-                              ;; keys and value types to prevent abuse
-                              :created (Date.)))
+(defn parse-uri-list [s]
+ (map #(.toASCIIString (URI. %))
+   (filter #(not (.startsWith %1 "#"))
+           (map trim (split-lines s)))))
+
+
+(defn run-id [server url]
+  (key (filter #(= url (val %)) (t2/runs))))
+
+(defn new-job [server workflow request]
+  (let [runurl (t2/new-run server workflow)
+        jobid (run-id (server runurl))]
     (created (full-url request jobid))))
 
-(defn all-jobs [request]
-   (println :all-jobs request)
-   (println (keys @jobs))
-   (map (partial full-url request) (keys @jobs)))
 
-(defn get-job [jobid]
-  (let [job (get @jobs jobid)]
-    (if (nil? job) nil
-      (if (empty? job) { :status 410
-                         :body "The job was cancelled"}
-         {:body job}))))
+(defn join-newlines [l]
+  (join "\n" l))
 
+(defn as-uri-list [ascii-uris]
+  {:status 200
+   :headers {"Content-Type" "text/uri-list"}
+   :body (join-newlines ascii-uris)})
+
+(defn ro-url [request t2jobid]
+  (full-url request (str t2jobid "/")))
+
+(defn all-jobs [request s]
+  (as-uri-list
+   (map (partial ro-url request) (keys (t2/runs s)))))
+
+(defn jobid-to-url [s jobid]
+  (get (t2/runs s) jobid))
+
+(defn job-not-found? [s jobid]
+  (nil? (jobid-to-url s jobid)))
+
+(defn manifest [s jobid]
+  (let [job (t2/run s (jobid-to-url s jobid))]
+    (if job {:body job})))
 
 (defn cancel-job [jobid]
-  (swap! jobs assoc jobid {}))
+  nil)
+
+(defn server-credentials [url]
+  ["taverna" "taverna"])
+
+(defroutes runner-routes
+  (let-routes [s (apply (partial t2/connect *server*) (server-credentials *server*))]  
+    (GET "/" [:as request] (all-jobs request s))
+    (POST "/" [body :as request] (new-job s (parse-uri-list body) request))
+    (ANY "/:jobid" [jobid :as req] (moved (full-url req (str jobid "/"))))
+    (context "/:jobid" [jobid :as req]
+      (ANY "/" [] (if (job-not-found? s jobid)  (route/not-found (str "Unknown job " jobid))))
+      (ANY "/" [] (moved (full-url req (str jobid "/" "manifest"))))
+      (DELETE "/" [] (cancel-job jobid s))
+      (GET "/manifest" [] (manifest s jobid))
+             
+    (route/not-found "Resource not found"))))
 
 
 (defroutes main-routes
-  (GET "/" [] "Workflow Runner service")
-  (GET "/test" [:as request] (str request))
-  (ANY "/jobs" [:as req] (moved (full-url req "/jobs/") :permanently))
-  (GET "/jobs/" [:as request] (all-jobs request)) 
-  (POST "/jobs/" {
-                  params :params
-                  body-params :body-params 
-                  :as request} (new-job (or body-params params) request))
-  (GET "/jobs/:jobid" [jobid] (get-job jobid))
-  (DELETE "/jobs/:jobid" [jobid] (cancel-job jobid))
-  (route/resources "/")
+  (GET "/" [:as req] (moved (full-url req "default/")))
+  (ANY "/default" [:as req] (moved (full-url req "default/")))
+  (context "/default" [] runner-routes)
+           ;; FIXME: This does not work
+  ;(context "/t2/{:server}" [server] (binding [*server* server] runner-routes)))
   (route/not-found "Resource not found"))
 
 (def app
