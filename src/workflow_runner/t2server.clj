@@ -20,6 +20,12 @@
 
 (defn map-value-map [f m] (zipmap (keys m) (map f (vals m))))
 
+(defn extract-map
+  "Generate a new map from seq by mapping fk and fv to find keys and values."
+  [fk fv sm] 
+    (zipmap (map fk sm) (map fv sm)))
+
+
 (defn connect
   "Connect to t2server and return a map to be used as 'server'"
   [url username password & req]
@@ -31,7 +37,7 @@
      :url url})))
 
 (defn runs [server]
-  (map href (get-in 
+  (extract-map :$ href (get-in 
               (client/get (:runs server) (::req server))
               [:body :runList :run])))
 

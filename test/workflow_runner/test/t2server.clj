@@ -17,6 +17,15 @@
   (is (= {:a "1" :b "{}" :c "[]"})
          (map-value-map str {:a 1 :b {} :c []})))
 
+(deftest test-extract-map
+  (let [seq-of-maps [ 
+          {:name "Fred" :tel 3133 :mob 4343}
+          {:name "June" :tel 5421 :mob 2141}
+          {:name "Alex" :tel 3133 :mob 1234}]]
+    (is (= {"Alex" 3133, "June" 5421, "Fred" 3133}
+           (extract-map :name :tel seq-of-maps)))))
+
+
 (deftest test-connect
   (let [s (connect *server* *server-user* *server-pw*)]
     (is (map? s))
@@ -27,9 +36,9 @@
 (deftest test-runs
   (let  [s (connect *server* *server-user* *server-pw*)
          r (runs s)]
-    (is (seq? r))
-    ; Should be a list of URIs
-    (map #(is (and (string? %) (.startsWith % *server*))) r)))
+    (is (map? r))
+    ; Should be a map of URIs
+    (doall (map #(is (and (string? %) (.startsWith % *server*))) (vals r)))))
 
 ;; http://stackoverflow.com/questions/3249334/test-whether-a-list-contains-a-specific-value-in-clojure
 (defn in? 
@@ -44,7 +53,7 @@
         r-uri (new-run s wf)]
     (is (string? r-uri))
     (is (.startsWith r-uri *server*))
-    (is (in? (runs s) r-uri))))
+    (is (in? (keys (runs s)) r-uri))))
 
 (deftest test-datetime?
     (is (not (datetime? nil)))
