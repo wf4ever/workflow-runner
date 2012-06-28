@@ -5,8 +5,7 @@
                   [ring-middleware-format "0.2.0"]
                   [clj-http "0.4.3"]
                   [clj-time "0.4.3"]
-                  [net.kronkltd/plaza "0.1.0-SNAPSHOT"]
-                  [edu.ucdenver.ccp/kr-jena-core "1.4.2"]
+                  [stain/plaza "0.1.1-SNAPSHOT"]
                  ]
 
   :plugins [[lein-ring "0.7.1"]]
