@@ -2,11 +2,12 @@
   (:import (java.net URI) (java.util UUID Date)) 
   (:use compojure.core)
   (:use [ring.middleware.format-params :only [wrap-restful-params]]
-        [ring.util.response]
+;        [ring.util.response]
         [ring.middleware.format-response :only [wrap-restful-response]]
         [clojure.string :only [trim split-lines join]])
   (:require [compojure.route :as route]
             [workflow-runner.t2server :as t2]
+            [workflow-runner.rdf :as rdf]
             [compojure.handler :as handler]))
 
 ;; TODO: Move to configuration file
@@ -71,7 +72,7 @@
 (defn as-uri-list [ascii-uris]
   {:status 200
    :headers {"Content-Type" "text/uri-list"}
-   :body (join-newlines ascii-uris)})
+   :body (str (join-newlines ascii-uris)"\n")})
 
 (defn ro-url [request t2jobid]
   (full-url request (str t2jobid "/")))
@@ -86,9 +87,9 @@
 (defn job-not-found? [s jobid]
   (nil? (jobid-to-url s jobid)))
 
-(defn manifest [s jobid]
-  (let [job (t2/run s (jobid-to-url s jobid))]
-    (if job {:body job})))
+(defn manifest [ro-url]
+    { :content-type "text/turtle"
+      :body (rdf/model-as-string (rdf/empty-wfrun-manifest ro-url))})
 
 (defn cancel-job [jobid]
   nil)
@@ -96,17 +97,32 @@
 (defn server-credentials [url]
   ["taverna" "taverna"])
 
+
+(def t2status 
+  "Map from t2status to Workflow Runner status"
+  {:Initialized :Initialized,
+   :Operating :Running,
+   :Stopped :Failed,
+   :Finished :Finished })
+
+(defn t2-status-to-runner-status [t2-status]
+  (str "http://purl.org/wf4ever/runner#" (name (t2status t2-status))))
+
+(defn job-status [s jobid] 
+  (as-uri-list [(t2-status-to-runner-status 
+   (t2/run-status (t2/run s (jobid-to-url s jobid))))]))
+
 (defroutes runner-routes
   (let-routes [s (apply (partial t2/connect *server*) (server-credentials *server*))]  
     (GET "/" [:as request] (all-jobs request s))
     (POST "/" [body :as request] (new-job s (parse-uri-list body) request))
     (ANY "/:jobid" [jobid :as req] (moved (full-url req (str jobid "/"))))
     (context "/:jobid" [jobid :as req]
-      (ANY "/" [] (if (job-not-found? s jobid)  (route/not-found (str "Unknown job " jobid))))
+      (ANY "*" [] (if (job-not-found? s jobid)  (route/not-found (str "Unknown job " jobid))))
       (ANY "/" [] (moved (full-url req (str jobid "/" "manifest"))))
       (DELETE "/" [] (cancel-job jobid s))
-      (GET "/manifest" [] (manifest s jobid))
-             
+      (GET "/manifest" [] (manifest (full-url req "./")))
+      (GET "/status" [] (job-status s jobid))
     (route/not-found "Resource not found"))))
 
 
