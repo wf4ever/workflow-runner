@@ -98,19 +98,40 @@
   ["taverna" "taverna"])
 
 
-(def t2status 
-  "Map from t2status to Workflow Runner status"
+(def status-t2-to-runner
+  "Map from t2 status to Workflow Runner status"
   {:Initialized :Initialized,
    :Operating :Running,
    :Stopped :Failed,
    :Finished :Finished })
 
-(defn t2-status-to-runner-status [t2-status]
-  (str "http://purl.org/wf4ever/runner#" (name (t2status t2-status))))
 
-(defn job-status [s jobid] 
+(def status-runner-to-t2
+  "Map from Workflow Runner status to t2 status"
+  { :Initialized :Initialized
+    :Queued :Operating
+    :Running :Operating
+    :Failed :Stopped
+    :Finished :Finished
+    :Cancelled :Finished
+    :Archived :Finished })
+
+(defn t2-status-to-runner-status [t2-status]
+  (str "http://purl.org/wf4ever/runner#" (name (status-t2-to-runner t2-status))))
+
+(defn get-job-status [s jobid] 
   (as-uri-list [(t2-status-to-runner-status 
    (t2/run-status (t2/run s (jobid-to-url s jobid))))]))
+
+(defn find-status [uris]
+  (keyword (.getFragment (URI. 
+         (first (filter #(.startsWith % "http://purl.org/wf4ever/runner#") (parse-uri-list uris)))))))
+
+(defn set-job-status [s jobid body]
+  (if (nil? body) {:status 400} (do 
+    (t2/run-set (t2/run s (jobid-to-url s jobid)) :status (status-runner-to-t2 (find-status body)))
+    (get-job-status s jobid))))
+  
 
 (defroutes runner-routes
   (let-routes [s (apply (partial t2/connect *server*) (server-credentials *server*))]  
@@ -122,7 +143,8 @@
       (ANY "/" [] (moved (full-url req (str jobid "/" "manifest"))))
       (DELETE "/" [] (cancel-job jobid s))
       (GET "/manifest" [] (manifest (full-url req "./")))
-      (GET "/status" [] (job-status s jobid))
+      (GET "/status" [] (get-job-status s jobid))
+      (PUT "/status" [body] (set-job-status s jobid body))
     (route/not-found "Resource not found"))))
 
 
