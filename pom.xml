@@ -10,7 +10,7 @@
   <scm>
     <connection>scm:git:git://github.com/wf4ever/workflow-runner.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/wf4ever/workflow-runner.git</developerConnection>
-    <tag>ead91d006ccb2eb231f524206730fe569b0ae91e</tag>
+    <tag>637504f5586b26750d04eddf3bfb400bfb29b713</tag>
     <url>https://github.com/wf4ever/workflow-runner</url>
   </scm>
   <build>
@@ -64,9 +64,9 @@
       <version>0.4.3</version>
     </dependency>
     <dependency>
-      <groupId>stain</groupId>
+      <groupId>net.kronkltd</groupId>
       <artifactId>plaza</artifactId>
-      <version>0.1.1-SNAPSHOT</version>
+      <version>0.1.0-SNAPSHOT</version>
     </dependency>
   </dependencies>
 </project>

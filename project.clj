@@ -5,7 +5,7 @@
                   [ring-middleware-format "0.2.0"]
                   [clj-http "0.4.3"]
                   [clj-time "0.4.3"]
-                  [stain/plaza "0.1.1-SNAPSHOT"]
+                  [net.kronkltd/plaza "0.1.0-SNAPSHOT"]
                  ]
 
   :plugins [[lein-ring "0.7.1"]]
