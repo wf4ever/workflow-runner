@@ -91,15 +91,35 @@
     (is (= new-expiry (run-set r :expiry new-expiry)))
     (is (before? old-expiry (run-get r :expiry)))))
 
- 
 (deftest test-start-run
   (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
         s (connect *server* *server-user* *server-pw*)
         r (run s (new-run s wf))
         old-expiry (run-get r :expiry)
         new-expiry (plus old-expiry (hours 1))]
+    (is (= :Operating (start-run r)))))
+
+(deftest test-run-finished-future
+  (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
+        s (connect *server* *server-user* *server-pw*)
+        r (run s (new-run s wf))
+        old-expiry (run-get r :expiry)
+        new-expiry (plus old-expiry (hours 1))
+        r-finished (when (start-run r) (run-finished-future r))]
     (is (= :Operating (start-run r)))
-    (when-run-finished r
-                       (fn [r] 
-                         (is (.contains (provenance r) "<http://www.w3.org/ns/prov#>"))))))
+    (is (future? r-finished))
+    (is (not future-done? r-finished))
+    (is (= r @r-finished))
+    (is (= :Finished (start-run r)))
+    (is (future-done? r-finished))
+    ))
+ 
+(deftest test-provenance
+  (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
+        s (connect *server* *server-user* *server-pw*)
+        r (run s (new-run s wf))
+        old-expiry (run-get r :expiry)
+        new-expiry (plus old-expiry (hours 1))
+        r-finished (when (start-run r) (run-finished-future r))]
+    (is (.contains (run-provenance @r-finished) "<http://www.w3.org/ns/prov#>"))))
 
