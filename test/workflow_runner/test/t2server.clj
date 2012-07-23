@@ -92,3 +92,14 @@
     (is (before? old-expiry (run-get r :expiry)))))
 
  
+(deftest test-start-run
+  (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
+        s (connect *server* *server-user* *server-pw*)
+        r (run s (new-run s wf))
+        old-expiry (run-get r :expiry)
+        new-expiry (plus old-expiry (hours 1))]
+    (is (= :Operating (start-run r)))
+    (when-run-finished r
+                       (fn [r] 
+                         (is (.contains (provenance r) "<http://www.w3.org/ns/prov#>"))))))
+

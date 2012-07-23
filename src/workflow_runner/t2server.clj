@@ -99,4 +99,17 @@
 (defn delete-run [run]
   (client/delete (:url run) (::req run)))
 
+(defn run-finished? [run]
+  (= (run-status run) :Finished))
   
+(defn run-finished-future
+  "Return a future when deref gives a finished run. "
+  [run] (future 
+          (while (run-finished? run)
+            (Thread/sleep 400))
+          run))
+
+(defn run-provenance [run]
+  ;(run-get run :provenance)
+  (client/get (str (:workingDirectory run) "out/workflowrun.prov.ttl")))
+
