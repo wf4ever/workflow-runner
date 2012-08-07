@@ -126,6 +126,7 @@
     (delete-run r)
     (is (not (run? r)))))
 
+; Disabled as it would also delete other runs!
 ;(deftest delete-all-runs
 ;  (let [s (connect *server* *server-user* *server-pw*)]
 ;         (delete-all-runs s)))
