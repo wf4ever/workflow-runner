@@ -56,6 +56,10 @@
         (client/get url (::req server))
                                 [:body :runDescription]))))
 
+(defn run? [run]
+  (= 200 (:status (client/head (:url run) 
+                        (assoc (::req run) :throw-exceptions false)))))
+
 (defn- run-get-parse-body [attr {body :body}]
     (cond 
       (= "" body) nil
@@ -99,4 +103,6 @@
 (defn delete-run [run]
   (client/delete (:url run) (::req run)))
 
+(defn delete-all-runs [server]
+   (doall (map #(delete-run (run server %)) (vals (runs server)))))
   

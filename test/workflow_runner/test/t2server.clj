@@ -91,4 +91,43 @@
     (is (= new-expiry (run-set r :expiry new-expiry)))
     (is (before? old-expiry (run-get r :expiry)))))
 
- 
+(deftest test-run-status
+  (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
+        s (connect *server* *server-user* *server-pw*)
+        r (run s (new-run s wf))]
+    (is (= :Initialized (run-status r)))))
+
+
+(deftest test-start-run
+  (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
+        s (connect *server* *server-user* *server-pw*)
+        r (run s (new-run s wf))]
+    (is (not (= :Initialized (start-run r))))
+    (is (get #{:Operating :Stopped :Finished} (run-status r)))))
+
+
+
+(deftest test-cancel-run
+  (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
+        s (connect *server* *server-user* *server-pw*)
+        r (run s (new-run s wf))]
+    (start-run r)
+    (cancel-run r)
+    (is (get #{:Stopped :Finished} (run-status r)))))
+
+
+
+
+(deftest test-delete-run
+  (let [wf (slurp (resource "helloworld.t2flow") :encoding "utf-8")
+        s (connect *server* *server-user* *server-pw*)
+        r (run s (new-run s wf))]
+    (is (run? r))
+    (delete-run r)
+    (is (not (run? r)))))
+
+;(deftest delete-all-runs
+;  (let [s (connect *server* *server-user* *server-pw*)]
+;         (delete-all-runs s)))
+
+
