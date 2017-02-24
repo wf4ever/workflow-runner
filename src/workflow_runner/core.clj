@@ -1,5 +1,5 @@
 (ns workflow-runner.core
-  (:import (java.net URI) (java.util UUID Date)) 
+  (:import (java.net URI) (java.util UUID Date))
   (:use compojure.core)
   (:use [ring.middleware.format-params :only [wrap-restful-params]]
 ;        [ring.util.response]
@@ -11,7 +11,7 @@
             [compojure.handler :as handler]))
 
 ;; TODO: Move to configuration file
-(def default-server "http://sandbox.wf4ever-project.org/taverna-server/rest/")
+(def default-server "http://sandbox.rohub.org/taverna-server/rest")
 
 (def ^:dynamic *server* default-server)
 
@@ -119,22 +119,22 @@
 (defn t2-status-to-runner-status [t2-status]
   (str "http://purl.org/wf4ever/runner#" (name (status-t2-to-runner t2-status))))
 
-(defn get-job-status [s jobid] 
-  (as-uri-list [(t2-status-to-runner-status 
+(defn get-job-status [s jobid]
+  (as-uri-list [(t2-status-to-runner-status
    (t2/run-status (t2/run s (jobid-to-url s jobid))))]))
 
 (defn find-status [uris]
-  (keyword (.getFragment (URI. 
+  (keyword (.getFragment (URI.
          (first (filter #(.startsWith % "http://purl.org/wf4ever/runner#") (parse-uri-list uris)))))))
 
 (defn set-job-status [s jobid body]
-  (if (nil? body) {:status 400} (do 
+  (if (nil? body) {:status 400} (do
     (t2/run-set (t2/run s (jobid-to-url s jobid)) :status (status-runner-to-t2 (find-status body)))
     (get-job-status s jobid))))
-  
+
 
 (defroutes runner-routes
-  (let-routes [s (apply (partial t2/connect *server*) (server-credentials *server*))]  
+  (let-routes [s (apply (partial t2/connect *server*) (server-credentials *server*))]
     (GET "/" [:as request] (all-jobs request s))
     (POST "/" [body :as request] (new-job s (parse-uri-list body) request))
     (ANY "/:jobid" [jobid :as req] (moved (full-url req (str jobid "/"))))
@@ -160,4 +160,3 @@
   (-> (handler/api main-routes)
       (wrap-restful-params)
       (wrap-restful-response)))
- 
