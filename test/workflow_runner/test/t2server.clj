@@ -1,12 +1,15 @@
 (ns workflow-runner.test.t2server
-  (:use [clojure.java.io :only [resource input-stream]])
+  (:use [clojure.java.io :only [input-stream]])
   (:use [workflow-runner.t2server])
   (:use [clj-time.core :only [before? after? now plus hours]])
   (:use [clojure.test]))
 
-(def ^:dynamic *server* "http://sandbox.wf4ever-project.org/taverna-server/rest/")
+(def ^:dynamic *server* "http://sandbox.rohub.org/taverna-server/rest")
 (def ^:dynamic *server-user* "taverna")
 (def ^:dynamic *server-pw* "taverna")
+
+(defn resource [file]
+  (str "test-resources/" file))
 
 (deftest test-authenticated
   (let [req (authenticated "fred" "soup")]
@@ -18,7 +21,7 @@
          (map-value-map str {:a 1 :b {} :c []})))
 
 (deftest test-extract-map
-  (let [seq-of-maps [ 
+  (let [seq-of-maps [
           {:name "Fred" :tel 3133 :mob 4343}
           {:name "June" :tel 5421 :mob 2141}
           {:name "Alex" :tel 3133 :mob 1234}]]
@@ -41,9 +44,9 @@
     (doall (map #(is (and (string? %) (.startsWith % *server*))) (vals r)))))
 
 ;; http://stackoverflow.com/questions/3249334/test-whether-a-list-contains-a-specific-value-in-clojure
-(defn in? 
+(defn in?
   "true if seq contains elm"
-  [seq elm]  
+  [seq elm]
   (some #(= elm %) seq))
 
 
@@ -130,5 +133,3 @@
 ;(deftest delete-all-runs
 ;  (let [s (connect *server* *server-user* *server-pw*)]
 ;         (delete-all-runs s)))
-
-
